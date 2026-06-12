@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time AQI Predictor & Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- JavaScript -->
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="icon">🌬️</span>
+        <div class="title-meta">
+          <h1>AeroPredict</h1>
+          <p class="subtitle">AI-Powered Real-Time Air Quality Index & PM2.5 Forecast</p>
+        </div>
+      </div>
+      <div class="header-divider"></div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- Left Column: Inputs and Settings -->
+      <section class="card control-panel">
+        <div class="card-header">
+          <span class="step-num">1</span>
+          <h2>Location & Conditions</h2>
+        </div>
+
+        <!-- Open-Meteo Auto-Prefill -->
+        <div class="prefill-container">
+          <label for="city-input">Quick Fetch from Open-Meteo</label>
+          <div class="search-bar">
+            <input id="city-input" type="text" placeholder="Enter city name (e.g. Beijing, Delhi, London)...">
+            <button id="prefill-btn" type="button">Auto-fill Lags</button>
+          </div>
+          <div id="prefill-status" class="status-msg"></div>
+        </div>
+
+        <!-- Main Form -->
+        <form id="input-form" onsubmit="return false;">
+          <!-- Pollutants Group -->
+          <fieldset class="form-group">
+            <legend>Current Pollutant Levels (µg/m³)</legend>
+            <div class="inputs-row">
+              <div class="input-field">
+                <label for="PM10">PM10</label>
+                <input name="PM10" id="PM10" type="number" step="any" min="0" placeholder="e.g. 52.3" required>
+              </div>
+              <div class="input-field">
+                <label for="SO2">SO2</label>
+                <input name="SO2" id="SO2" type="number" step="any" min="0" placeholder="e.g. 8.4" required>
+              </div>
+              <div class="input-field">
+                <label for="NO2">NO2</label>
+                <input name="NO2" id="NO2" type="number" step="any" min="0" placeholder="e.g. 34.1" required>
+              </div>
+              <div class="input-field">
+                <label for="CO">CO (mg/m³)</label>
+                <input name="CO" id="CO" type="number" step="any" min="0" placeholder="e.g. 0.8" required>
+              </div>
+              <div class="input-field">
+                <label for="O3">O3</label>
+                <input name="O3" id="O3" type="number" step="any" min="0" placeholder="e.g. 68.2" required>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Meteorological Conditions Group -->
+          <fieldset class="form-group">
+            <legend>Weather & Meteorology</legend>
+            <div class="inputs-row grid-3">
+              <div class="input-field">
+                <label for="TEMP">Temperature (°C)</label>
+                <input name="TEMP" id="TEMP" type="number" step="any" placeholder="e.g. 21.5" required>
+              </div>
+              <div class="input-field">
+                <label for="PRES">Pressure (hPa)</label>
+                <input name="PRES" id="PRES" type="number" step="any" min="800" max="1100" placeholder="e.g. 1012.5" required>
+              </div>
+              <div class="input-field">
+                <label for="DEWP">Dew Point (°C)</label>
+                <input name="DEWP" id="DEWP" type="number" step="any" placeholder="e.g. 12.4" required>
+              </div>
+              <div class="input-field">
+                <label for="RAIN">Rainfall (mm)</label>
+                <input name="RAIN" id="RAIN" type="number" step="any" min="0" placeholder="e.g. 0.0" required>
+              </div>
+              <div class="input-field">
+                <label for="WSPM">Wind Speed (m/s)</label>
+                <input name="WSPM" id="WSPM" type="number" step="any" min="0" placeholder="e.g. 1.8" required>
+              </div>
+              <div class="input-field">
+                <label for="wd">Wind Direction</label>
+                <select name="wd" id="wd" required>
+                  <option value="" disabled selected>Select wind direction</option>
+                  <option value="N">N</option>
+                  <option value="NNE">NNE</option>
+                  <option value="NE">NE</option>
+                  <option value="ENE">ENE</option>
+                  <option value="E">E</option>
+                  <option value="ESE">ESE</option>
+                  <option value="SE">SE</option>
+                  <option value="SSE">SSE</option>
+                  <option value="S">S</option>
+                  <option value="SSW">SSW</option>
+                  <option value="SW">SW</option>
+                  <option value="WSW">WSW</option>
+                  <option value="W">W</option>
+                  <option value="WNW">WNW</option>
+                  <option value="NW">NW</option>
+                  <option value="NNW">NNW</option>
+                  <option value="CV">CV (Calm Variable)</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Historical PM2.5 (Lag and Rolling features) -->
+          <details class="form-group collapsible-section" id="lag-section">
+            <summary class="collapsible-summary">
+              <span>🕰️ PM2.5 History & Rolling Statistics</span>
+              <span class="badge-accent">Auto-filled or manual</span>
+            </summary>
+            <div class="collapsible-content">
+              <p class="section-desc">These are computed from the last 72 hours of PM2.5 data. Auto-fill above to populate automatically.</p>
+              
+              <div class="lags-sub-grid">
+                <div class="lag-group">
+                  <h4>Lag Readings (µg/m³)</h4>
+                  <div class="inputs-row grid-4">
+                    <div class="input-field size-s">
+                      <label for="lag1">Lag 1h</label>
+                      <input name="PM2.5_lag1" id="lag1" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag2">Lag 2h</label>
+                      <input name="PM2.5_lag2" id="lag2" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag3">Lag 3h</label>
+                      <input name="PM2.5_lag3" id="lag3" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag6">Lag 6h</label>
+                      <input name="PM2.5_lag6" id="lag6" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag12">Lag 12h</label>
+                      <input name="PM2.5_lag12" id="lag12" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag24">Lag 24h</label>
+                      <input name="PM2.5_lag24" id="lag24" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag48">Lag 48h</label>
+                      <input name="PM2.5_lag48" id="lag48" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="lag72">Lag 72h</label>
+                      <input name="PM2.5_lag72" id="lag72" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="lag-group">
+                  <h4>Rolling Statistics (µg/m³)</h4>
+                  <div class="inputs-row grid-4">
+                    <div class="input-field size-s">
+                      <label for="roll3_mean">3h Mean</label>
+                      <input name="PM2.5_roll3_mean" id="roll3_mean" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll3_std">3h StdDev</label>
+                      <input name="PM2.5_roll3_std" id="roll3_std" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll6_mean">6h Mean</label>
+                      <input name="PM2.5_roll6_mean" id="roll6_mean" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll6_std">6h StdDev</label>
+                      <input name="PM2.5_roll6_std" id="roll6_std" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll12_mean">12h Mean</label>
+                      <input name="PM2.5_roll12_mean" id="roll12_mean" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll12_std">12h StdDev</label>
+                      <input name="PM2.5_roll12_std" id="roll12_std" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll24_mean">24h Mean</label>
+                      <input name="PM2.5_roll24_mean" id="roll24_mean" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                    <div class="input-field size-s">
+                      <label for="roll24_std">24h StdDev</label>
+                      <input name="PM2.5_roll24_std" id="roll24_std" type="number" step="any" placeholder="0.0" required>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Hidden Advanced / Time parameters (auto-filled, but editable) -->
+          <details class="form-group collapsible-section">
+            <summary class="collapsible-summary">
+              <span>⚙️ Time & Date Overrides</span>
+              <span class="badge-secondary">Optional</span>
+            </summary>
+            <div class="collapsible-content">
+              <div class="inputs-row grid-3">
+                <div class="input-field">
+                  <label for="hour">Hour (0-23)</label>
+                  <input name="hour" id="hour" type="number" min="0" max="23" placeholder="Current hour">
+                </div>
+                <div class="input-field">
+                  <label for="day">Day of Week</label>
+                  <select name="day" id="day">
+                    <option value="0">Monday</option>
+                    <option value="1">Tuesday</option>
+                    <option value="2">Wednesday</option>
+                    <option value="3">Thursday</option>
+                    <option value="4">Friday</option>
+                    <option value="5">Saturday</option>
+                    <option value="6">Sunday</option>
+                  </select>
+                </div>
+                <div class="input-field">
+                  <label for="month">Month (1-12)</label>
+                  <input name="month" id="month" type="number" min="1" max="12" placeholder="Current month">
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Submit Button -->
+          <button id="predict-btn" class="glow-button" type="button">
+            <span class="btn-text">🔍 Forecast Air Quality</span>
+            <span class="btn-glow-element"></span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Right Column: Forecast / Results -->
+      <section class="right-panel">
+        <!-- Result Card -->
+        <div class="card result-card" id="result-card" hidden>
+          <div class="card-header">
+            <span class="step-num">2</span>
+            <h2>Analysis & Forecast</h2>
+          </div>
+
+          <div class="result-layout">
+            <div class="badge-wrapper">
+              <div id="aqi-badge" class="aqi-badge">
+                <span class="badge-label">AQI BAND</span>
+                <span id="aqi-band-text" class="badge-value">Good</span>
+              </div>
+            </div>
+
+            <div class="result-details">
+              <div class="metric-container">
+                <span class="metric-label">Predicted PM2.5 Concentration</span>
+                <div class="metric-value-wrapper">
+                  <span id="pm25-value" class="metric-value">42.5</span>
+                  <span class="metric-unit">µg/m³</span>
+                </div>
+              </div>
+
+              <div class="safety-indicator" id="safety-card">
+                <span id="safety-icon" class="safety-icon">✅</span>
+                <div class="safety-text">
+                  <h3 id="safety-title">Safe Outside?</h3>
+                  <p id="safe-outside">Air quality is acceptable. Enjoy outdoor activities.</p>
+                </div>
+              </div>
+
+              <div class="advisory-card">
+                <h3>Health Advisory</h3>
+                <p id="advice-text">No significant health impacts expected for the general public.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Standby State / Instructions -->
+        <div class="card standby-card" id="standby-card">
+          <div class="standby-icon">🍃</div>
+          <h3>Ready for Prediction</h3>
+          <p>Please enter weather parameters and pollutant concentrations on the left, or use the <strong>Open-Meteo Quick Fetch</strong> to pull current local data. Then click <strong>Forecast Air Quality</strong> to evaluate air safety.</p>
+        </div>
+
+        <!-- Loading spinner -->
+        <div class="card loading-card" id="spinner" hidden>
+          <div class="spinner-ring"><div></div><div></div><div></div><div></div></div>
+          <h3>Running Predictive Models</h3>
+          <p>Interpolating features and querying RandomForest regressors...</p>
+        </div>
+
+        <!-- Error Card -->
+        <div class="card error-card" id="error-msg" hidden>
+          <div class="error-icon">⚠️</div>
+          <h3>Prediction Failed</h3>
+          <p id="error-text">An unknown error occurred while communicating with the server.</p>
+        </div>
+      </main>
+    </div>
+
+    <!-- Background decorative blur elements -->
+    <div class="blur-glow bg-glow-1"></div>
+    <div class="blur-glow bg-glow-2"></div>
+  </div>
+</body>
+</html>
